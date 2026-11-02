@@ -60,6 +60,13 @@ jobs:
             --exclude='include/config.php' --exclude='include/config2.php' \
             --exclude='.env*' --exclude='uploads/' --exclude='logs/' \
             ./ "$TARGET:/home/adtrackr-testing/htdocs/testing.adtrackr.org/"
+      - name: Verify campaign database and visitor tracking
+        env:
+          SSH_PORT: ${{ vars.TESTING_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes adtrackr-testing@187.127.149.83 'cd /home/adtrackr-testing/htdocs/testing.adtrackr.org && php' < tests/smoke-campaign.php
       - name: Check HTTPS response
         run: curl --fail --silent --show-error --location --max-time 30 --output /dev/null https://testing.adtrackr.org/
       - name: Remove deployment key
