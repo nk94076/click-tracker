@@ -1,0 +1,64 @@
+name: Deploy testing
+on:
+  push:
+    branches: [testing]
+    paths:
+      - '**.php'
+      - 'img/**'
+permissions:
+  contents: read
+concurrency:
+  group: deploy-testing
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -r -n1 php -l
+      - name: Configure SSH
+        env:
+          DEPLOY_KEY: ${{ secrets.TESTING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TESTING_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
+      - name: Backup and deploy testing files
+        env:
+          SSH_PORT: ${{ vars.TESTING_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+          TARGET=adtrackr-testing@187.127.149.83
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$TARGET" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          site=/home/adtrackr-testing/htdocs/testing.adtrackr.org
+          test -d "$site"
+          test -w "$site"
+          command -v rsync >/dev/null
+          test -f "$site/include/config.php"
+          test -f "$site/include/config2.php"
+          backup=/home/adtrackr-testing/backups
+          mkdir -p "$backup"
+          chmod 700 "$backup"
+          umask 077
+          tar -czf "$backup/testing-$(date -u +%Y%m%dT%H%M%S)-$$.tar.gz" -C "$site" .
+          REMOTE
+          rsync -rz --itemize-changes \
+            -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
+            --exclude='.git/' --exclude='.github/' \
+            --exclude='include/config.php' --exclude='include/config2.php' \
+            --exclude='.env*' --exclude='uploads/' --exclude='logs/' \
+            ./ "$TARGET:/home/adtrackr-testing/htdocs/testing.adtrackr.org/"
+      - name: Check HTTPS response
+        run: curl --fail --silent --show-error --location --max-time 30 --output /dev/null https://testing.adtrackr.org/
+      - name: Remove deployment key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
