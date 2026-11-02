@@ -5,6 +5,7 @@ on:
     paths:
       - '**.php'
       - 'img/**'
+      - '.github/workflows/deploy-testing.yml'
 permissions:
   contents: read
 concurrency:
@@ -37,7 +38,7 @@ jobs:
           set -euo pipefail
           [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
           TARGET=adtrackr-testing@187.127.149.83
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$TARGET" 'bash -se' <<'REMOTE'
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes "$TARGET" 'bash -se' <<'REMOTE'
           set -euo pipefail
           site=/home/adtrackr-testing/htdocs/testing.adtrackr.org
           test -d "$site"
