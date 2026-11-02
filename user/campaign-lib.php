@@ -26,6 +26,7 @@ function campaign_schema($conn) {
         name VARCHAR(120) NOT NULL,
         url TEXT NOT NULL,
         source_url TEXT NOT NULL,
+        geos VARCHAR(255) NOT NULL DEFAULT '',
         device VARCHAR(10) NOT NULL DEFAULT 'both',
         active TINYINT NOT NULL DEFAULT 1,
         android_visits BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -34,4 +35,9 @@ function campaign_schema($conn) {
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $column = $conn->query("SHOW COLUMNS FROM visitor_campaigns LIKE 'geos'");
+    if ($column->num_rows === 0) {
+        try { $conn->query("ALTER TABLE visitor_campaigns ADD COLUMN geos VARCHAR(255) NOT NULL DEFAULT ''"); }
+        catch (mysqli_sql_exception $e) { if ((int)$e->getCode() !== 1060) throw $e; }
+    }
 }
