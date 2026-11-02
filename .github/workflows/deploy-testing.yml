@@ -19,8 +19,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -r -n1 php -l
-      - name: Test visitor tracking helpers
-        run: php tests/test-campaign.php
       - name: Configure SSH
         env:
           DEPLOY_KEY: ${{ secrets.TESTING_SSH_KEY }}
@@ -56,17 +54,17 @@ jobs:
           REMOTE
           rsync -rz --itemize-changes \
             -e "ssh -i $HOME/.ssh/deploy_key -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes" \
-            --exclude='.git/' --exclude='.github/' --exclude='tests/' \
+            --exclude='.git/' --exclude='.github/' \
             --exclude='include/config.php' --exclude='include/config2.php' \
             --exclude='.env*' --exclude='uploads/' --exclude='logs/' \
             ./ "$TARGET:/home/adtrackr-testing/htdocs/testing.adtrackr.org/"
-      - name: Verify campaign database and visitor tracking
+      - name: Remove reverted campaign-manager files
         env:
           SSH_PORT: ${{ vars.TESTING_SSH_PORT || '22' }}
         run: |
           set -euo pipefail
           [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
-          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes adtrackr-testing@187.127.149.83 'cd /home/adtrackr-testing/htdocs/testing.adtrackr.org && php' < tests/smoke-campaign.php
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes adtrackr-testing@187.127.149.83 'rm -f /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/campaigns.php /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/campaign-lib.php /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/visit.php'
       - name: Check HTTPS response
         run: curl --fail --silent --show-error --location --max-time 30 --output /dev/null https://testing.adtrackr.org/
       - name: Remove deployment key
