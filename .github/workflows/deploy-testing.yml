@@ -65,6 +65,20 @@ jobs:
           set -euo pipefail
           [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
           ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes adtrackr-testing@187.127.149.83 'rm -f /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/campaigns.php /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/campaign-lib.php /home/adtrackr-testing/htdocs/testing.adtrackr.org/user/visit.php'
+      - name: Remove unused legacy files
+        env:
+          SSH_PORT: ${{ vars.TESTING_SSH_PORT || '22' }}
+        run: |
+          set -euo pipefail
+          [[ "$SSH_PORT" =~ ^[0-9]+$ ]]
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o ConnectTimeout=20 -o BatchMode=yes -o StrictHostKeyChecking=yes adtrackr-testing@187.127.149.83 'bash -se' <<'CLEANUP'
+          site=/home/adtrackr-testing/htdocs/testing.adtrackr.org
+          rm -f "$site/admin/sidebar.php" "$site/user/dashboard.php"
+          if [ -f "$site/img/index.php" ] && ! grep -q '[^[:space:]]' "$site/img/index.php"; then
+            rm -f "$site/img/index.php"
+          fi
+          if [ -d "$site/img" ]; then rmdir --ignore-fail-on-non-empty "$site/img"; fi
+          CLEANUP
       - name: Check HTTPS response
         run: curl --fail --silent --show-error --location --max-time 30 --output /dev/null https://testing.adtrackr.org/
       - name: Remove deployment key
